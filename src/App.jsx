@@ -7,7 +7,7 @@ import SOPWorkbench from './components/SOPWorkbench';
 import LearningDevelopment from './components/LearningDevelopment';
 import { BackupPanel, DecisionGates, TemplateCards, WeeklyWorkbench } from './components/Operations';
 import { Card, Section, Tag, Toast, useToast } from './components/Common';
-import { budgets, capabilityNames, funnelStages, gates, longGoals, principles, scoreFields, stages, tbdItems } from './data/planData';
+import { budgets, funnelStages, gates, longGoals, principles, scoreFields, stages, tbdItems } from './data/planData';
 import { currentStage, funnelCounts, KEYS, load, localISO, nextGate, save } from './lib/workPlan';
 
 function useStored(key,fallback) { const [value,setValue]=useState(()=>load(key,fallback)); useEffect(()=>save(key,value),[key,value]); return [value,setValue]; }
@@ -19,15 +19,11 @@ export default function App() {
   const [customers,setCustomers]=useStored(KEYS.crm,[]),[expenses,setExpenses]=useStored(KEYS.expenses,[]),[weekly,setWeekly]=useStored(KEYS.weekly,{}),[decisions,setDecisions]=useStored(KEYS.gateDecisions,{}),[templateDrafts,setTemplateDrafts]=useStored(KEYS.templateDrafts,{}),[learningResources,setLearningResources]=useStored(KEYS.learningResources,[]),[capabilityReviews,setCapabilityReviews]=useStored(KEYS.capabilityReviews,{});
   const [toast,showToast]=useToast(), counts=useMemo(()=>funnelCounts(customers),[customers]), gate=nextGate(today,decisions,current);
   const due=customers.filter(c=>c.nextDate&&c.nextDate<=today&&!['成交','失败','暂缓'].includes(c.stage));
-  const activeLearning=learningResources.find(r=>r.status==='学习中'&&r.role==='主要课程')||learningResources.find(r=>r.status==='计划学习');
-  const currentMonth=today.slice(0,7), capabilityData=capabilityReviews[currentMonth]||{};
-  const capabilityFocus=capabilityNames.filter(n=>capabilityData[n]).sort((a,b)=>capabilityData[a].score-capabilityData[b].score)[0];
   const currentDone=current.must?.filter((_,i)=>timelineChecks[`${current.id}:${i}`]).length||0;
   const currentTotal=current.must?.length||0;
   return <div className="app-shell"><Navigation/><main>
     <header id="overview" className="hero"><div className="hero-inner"><div className="hero-copy"><span className="overline">2026 · UNITED STATES MARKET ENTRY</span><h1>美国创业与工业设备<br/>市场进入计划</h1><p>从产品验证、客户开发、生产试用到首单和长期运营的完整执行系统</p><blockquote>先验证，再投入；先跑通一个业务，再扩展。</blockquote></div><div className="status-panel"><span>当前阶段 · {today}</span><h2>{current.title}</h2><p>{current.goal||'基于2026年结果制定下一年度计划。'}</p><div><small>下一个决策门</small><strong>{gate?`${gate.date} · ${gate.title}`:'2026年度决策已全部完成'}</strong></div><div><small>当前阶段进度</small><strong>{currentTotal?`${currentDone} / ${currentTotal}`:'复盘期'}</strong></div></div></div></header>
     <div className="page-container">
-      <div className="metric-grid">{[['赴美时间','2026.09.05'],['目标企业','30—50 家'],['有效访谈','10—15 次'],['合格机会','3—5 家'],['生产试用','1—2 次'],['资金上限','¥65—125万'],['本月学习主题',activeLearning?.topic||'待设置'],['当前能力重点',capabilityFocus||'待评估'],['本周学习转化',activeLearning?.application||'先定义业务问题']].map(([l,v])=><Card key={l} className="metric"><span>{l}</span><strong>{v}</strong></Card>)}</div>
       <div className="today-grid"><Card className="today-card"><span className="kicker">今日建议</span><h2>{current.title}</h2><p>{current.goal||'回顾2026年证据并形成2027年计划。'}</p>{current.must?.length?<List items={current.must.filter((_,i)=>!timelineChecks[`${current.id}:${i}`]).slice(0,3)}/>:<p>打开周复盘和决策门，形成下一阶段行动。</p>}<div className="tag-row">{current.recommended.map(id=><Tag tone="gold" key={id}>{id.toUpperCase().replace('-',' ')}</Tag>)}</div></Card><Card className="today-card"><span className="kicker">需要跟进</span><h2>{due.length} 个 CRM 下一步已到期</h2>{due.length?<List items={due.slice(0,4).map(c=>`${c.company}：${c.nextStep||'更新下一步'}`)}/>:<p>今天没有逾期的客户动作。新增客户后，这里会自动提醒。</p>}<button className="text-btn" onClick={()=>document.getElementById('sales').scrollIntoView({behavior:'smooth'})}>打开客户工作台 →</button></Card></div>
 
       <Section id="positioning" eyebrow="01" title="创业总体定位"><div className="split"><Card><h3>公司做宽</h3><p>建立一家由创业者100%独立拥有和管理、以中国供应链为基础、面向美国提供产品销售、贸易、市场进入和商业解决方案的公司。</p><List items={['进口、代理和销售中国产品','工业产品选型、试用、交付、培训与售后','中国供应链采购和美国市场进入服务','根据真实需求开发其他产品与项目']}/></Card><Card className="focus-card"><h3>第一条业务做窄</h3><p>2026年仅用工业激光清洗设备服务滚塑、塑料加工、橡胶加工及模具相关企业，解决模具残留、人工、停机和损伤风险。</p><div className="dont"><strong>暂不主动探索</strong><p>船舶、普通除锈、焊接、文物、建筑、汽车维修及其他无行业资源场景。</p></div></Card></div></Section>
