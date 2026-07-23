@@ -1,0 +1,56 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import Navigation from './components/Navigation';
+import Timeline from './components/Timeline';
+import CRMWorkbench from './components/CRMWorkbench';
+import ExpenseLedger from './components/ExpenseLedger';
+import SOPWorkbench from './components/SOPWorkbench';
+import LearningDevelopment from './components/LearningDevelopment';
+import { BackupPanel, DecisionGates, TemplateCards, WeeklyWorkbench } from './components/Operations';
+import { Card, Section, Tag, Toast, useToast } from './components/Common';
+import { budgets, capabilityNames, funnelStages, gates, longGoals, principles, scoreFields, stages, tbdItems } from './data/planData';
+import { currentStage, funnelCounts, KEYS, load, localISO, nextGate, save } from './lib/workPlan';
+
+function useStored(key,fallback) { const [value,setValue]=useState(()=>load(key,fallback)); useEffect(()=>save(key,value),[key,value]); return [value,setValue]; }
+const List=({items})=><ul>{items.map(x=><li key={x}>{x}</li>)}</ul>;
+
+export default function App() {
+  const today=localISO(), current=useMemo(()=>currentStage(today),[today]);
+  const [sopChecks,setSopChecks]=useStored(KEYS.sopChecks,{}),[sopOpen,setSopOpen]=useStored(KEYS.sopOpen,{'sop-01':true}),[timelineChecks,setTimelineChecks]=useStored(KEYS.timelineChecks,{});
+  const [customers,setCustomers]=useStored(KEYS.crm,[]),[expenses,setExpenses]=useStored(KEYS.expenses,[]),[weekly,setWeekly]=useStored(KEYS.weekly,{}),[decisions,setDecisions]=useStored(KEYS.gateDecisions,{}),[templateDrafts,setTemplateDrafts]=useStored(KEYS.templateDrafts,{}),[learningResources,setLearningResources]=useStored(KEYS.learningResources,[]),[capabilityReviews,setCapabilityReviews]=useStored(KEYS.capabilityReviews,{});
+  const [toast,showToast]=useToast(), counts=useMemo(()=>funnelCounts(customers),[customers]), gate=nextGate(today,decisions,current);
+  const due=customers.filter(c=>c.nextDate&&c.nextDate<=today&&!['成交','失败','暂缓'].includes(c.stage));
+  const activeLearning=learningResources.find(r=>r.status==='学习中'&&r.role==='主要课程')||learningResources.find(r=>r.status==='计划学习');
+  const currentMonth=today.slice(0,7), capabilityData=capabilityReviews[currentMonth]||{};
+  const capabilityFocus=capabilityNames.filter(n=>capabilityData[n]).sort((a,b)=>capabilityData[a].score-capabilityData[b].score)[0];
+  const currentDone=current.must?.filter((_,i)=>timelineChecks[`${current.id}:${i}`]).length||0;
+  const currentTotal=current.must?.length||0;
+  return <div className="app-shell"><Navigation/><main>
+    <header id="overview" className="hero"><div className="hero-inner"><div className="hero-copy"><span className="overline">2026 · UNITED STATES MARKET ENTRY</span><h1>美国创业与工业设备<br/>市场进入计划</h1><p>从产品验证、客户开发、生产试用到首单和长期运营的完整执行系统</p><blockquote>先验证，再投入；先跑通一个业务，再扩展。</blockquote></div><div className="status-panel"><span>当前阶段 · {today}</span><h2>{current.title}</h2><p>{current.goal||'基于2026年结果制定下一年度计划。'}</p><div><small>下一个决策门</small><strong>{gate?`${gate.date} · ${gate.title}`:'2026年度决策已全部完成'}</strong></div><div><small>当前阶段进度</small><strong>{currentTotal?`${currentDone} / ${currentTotal}`:'复盘期'}</strong></div></div></div></header>
+    <div className="page-container">
+      <div className="metric-grid">{[['赴美时间','2026.09.05'],['目标企业','30—50 家'],['有效访谈','10—15 次'],['合格机会','3—5 家'],['生产试用','1—2 次'],['资金上限','¥65—125万'],['本月学习主题',activeLearning?.topic||'待设置'],['当前能力重点',capabilityFocus||'待评估'],['本周学习转化',activeLearning?.application||'先定义业务问题']].map(([l,v])=><Card key={l} className="metric"><span>{l}</span><strong>{v}</strong></Card>)}</div>
+      <div className="today-grid"><Card className="today-card"><span className="kicker">今日建议</span><h2>{current.title}</h2><p>{current.goal||'回顾2026年证据并形成2027年计划。'}</p>{current.must?.length?<List items={current.must.filter((_,i)=>!timelineChecks[`${current.id}:${i}`]).slice(0,3)}/>:<p>打开周复盘和决策门，形成下一阶段行动。</p>}<div className="tag-row">{current.recommended.map(id=><Tag tone="gold" key={id}>{id.toUpperCase().replace('-',' ')}</Tag>)}</div></Card><Card className="today-card"><span className="kicker">需要跟进</span><h2>{due.length} 个 CRM 下一步已到期</h2>{due.length?<List items={due.slice(0,4).map(c=>`${c.company}：${c.nextStep||'更新下一步'}`)}/>:<p>今天没有逾期的客户动作。新增客户后，这里会自动提醒。</p>}<button className="text-btn" onClick={()=>document.getElementById('sales').scrollIntoView({behavior:'smooth'})}>打开客户工作台 →</button></Card></div>
+
+      <Section id="positioning" eyebrow="01" title="创业总体定位"><div className="split"><Card><h3>公司做宽</h3><p>建立一家由创业者100%独立拥有和管理、以中国供应链为基础、面向美国提供产品销售、贸易、市场进入和商业解决方案的公司。</p><List items={['进口、代理和销售中国产品','工业产品选型、试用、交付、培训与售后','中国供应链采购和美国市场进入服务','根据真实需求开发其他产品与项目']}/></Card><Card className="focus-card"><h3>第一条业务做窄</h3><p>2026年仅用工业激光清洗设备服务滚塑、塑料加工、橡胶加工及模具相关企业，解决模具残留、人工、停机和损伤风险。</p><div className="dont"><strong>暂不主动探索</strong><p>船舶、普通除锈、焊接、文物、建筑、汽车维修及其他无行业资源场景。</p></div></Card></div></Section>
+      <Section id="principles" eyebrow="02" title="2026 年执行原则"><div className="principle-grid">{principles.map((x,i)=><Card key={x}><span>0{i+1}</span><h3>{x}</h3></Card>)}</div><div className="notice"><strong>2026 年真正要证明的事</strong><p>客户是谁、问题是否真实、机器是否有效、客户是否愿意试用和付钱、进口交付售后是否可行，以及业务是否值得在2027年扩大。</p></div><div className="not-now"><strong>现在不做</strong><p>独立品牌、商标、多个DBA、多家公司、豪华网站、办公室、长期仓库、大量库存、员工、全国销售团队、跨行业探索、长期租赁与自营分期。</p></div></Section>
+      <Section id="goals" eyebrow="03" title="2026—2029 年长期目标"><div className="goal-grid">{longGoals.map(g=><Card key={g.year}><span className="year">{g.year}</span><h3>{g.title}</h3><List items={g.items}/></Card>)}</div></Section>
+      <Section id="timeline" eyebrow="04" title="2026 年执行时间线"><p className="section-intro">当前日期自动高亮。展开阶段逐项执行；勾选结果会保存在本机。</p><Timeline current={current} checks={timelineChecks} setChecks={setTimelineChecks}/></Section>
+
+      <Section id="sales" eyebrow="05" title="产品、客户与销售路径"><div className="funnel" aria-label="客户销售漏斗">{funnelStages.map((stage,i)=><div key={stage} className="funnel-step"><span>{i+1}</span><strong>{stage}</strong><em>{counts[stage]||0}</em></div>)}</div><div className="definition-grid"><Card><h3>有效访谈</h3><p>与了解生产、设备、维护或模具清洗流程的人完成至少约20分钟沟通。</p></Card><Card><h3>合格机会</h3><p>真实痛点、激光初步适用、存在采购可能且愿意继续推进。</p></Card><Card><h3>演示 / 生产试用</h3><p>客户提供真实模具、工件或生产场景进行验证。</p></Card></div>
+        <div className="sales-path">{[['01','远程资格筛选','免费收集工厂、工件、方法、频率、人工、停机和购买参与人；不合格客户停止推进。'],['02','案例与视频沟通','用中国案例、前后视频、时间人工对比和安全说明争取技术沟通。'],['03','免费现场小演示','仅给重点区域合格客户，约60—90分钟；客户提供真实工件、电源、安全区域与关键人员。'],['04','3—5天生产试用','以Production Validation Trial对外，真实任务、固定日期、成功标准、培训、协议和按时回收缺一不可。'],['05','试用转购买','结束当天量化效果、人工、停机、损伤与安全，选择购买试用机、订购新机或按时归还。']].map(([n,t,d])=><Card key={n}><span>{n}</span><h3>{t}</h3><p>{d}</p></Card>)}</div>
+        <div className="notice"><strong>标杆客户与区域巡回</strong><p>前3—5个美国标杆客户可免费或极低费用试用，但必须提供数据、负责人、决策人复盘与案例授权。获得2—3个本地案例后改为可抵扣的固定试用包。每次跨州行程原则上覆盖2—4家客户，不为陌生冷客户单独横跨美国运机。</p></div><CRMWorkbench customers={customers} setCustomers={setCustomers}/>
+      </Section>
+
+      <Section id="company" eyebrow="06" title="公司、身份与专业顾问"><div className="three-col"><Card><h3>公司结构</h3><List items={['一家宽泛名称的美国LLC','创业者100%持有，父亲不持股','父亲资金采用可追踪赠与或借款','个人与公司资金分开','客户付款只能进入公司账户']}/></Card><Card><h3>个人落地顺序</h3><List items={['美国手机号','个人银行账户','公司注册','EIN','公司银行账户','会计和支付系统','后续住房']}/></Card><Card><h3>顾问触发顺序</h3><List items={['验证积极后：E-2律师、跨境CPA','进口前：合规顾问、报关行、保险经纪','正式演示/签约前：商业律师']}/></Card></div><div className="notice legal">朋友地址不得虚假描述为永久公司经营地址。所有身份、公司、资金与顾问安排均需专业人士按实际情况确认。</div></Section>
+      <Section id="compliance" eyebrow="07" title="供应商、进口与合规"><div className="check-columns"><List items={['美国市场销售权限','采购价、MOQ与生产周期','演示机销售权限','英文说明书与安全标签','准确型号、功率、波长、激光等级','FDA资料与accession number','HS编码、IOR、报关行与关税','产品责任保险与客户认证要求','美国电源、烟尘处理、备件和保修','软件版本、远程支持和重大故障责任','客户信息保护与禁止供应商绕客']}/></div><div className="risk"><strong>扩大销售前的硬门槛</strong><p>如果供应商无法提供必要的合规资料、稳定技术支持、备件方案和客户保护，即使清洗效果良好，也不能直接扩大美国销售。</p></div></Section>
+      <Section id="hiring" eyebrow="08" title="招聘计划"><div className="split"><Card><h3>2026：创始人亲自跑通</h3><p>不招聘助理或全职员工。必要时仅购买网站、视频、英文校对等短期项目服务。</p></Card><Card><h3>2027：触发后再招聘</h3><List items={['行政工作每周超过8—12小时','行政已影响客户开发','可承担至少6个月成本','已有标准流程','首人优先技术运营、客户支持、商务运营或项目协调']}/></Card></div></Section>
+      <Section id="funding" eyebrow="09" title="资金计划"><div className="budget-grid">{budgets.map(b=><Card key={b.id}><span className="kicker">{b.name} · {b.period}</span><strong className="amount">{b.amount}</strong><h4>释放条件</h4><p>{b.trigger}</p><h4>主要用途</h4><p>{b.uses}</p></Card>)}</div><div className="fund-rule"><strong>第一年授权上限：65万—125万元人民币</strong><p>分阶段释放。未通过决策门，不自动释放下一阶段资金；不因已投入时间和资金而继续追加。</p></div><ExpenseLedger expenses={expenses} setExpenses={setExpenses}/></Section>
+      <Section id="support" eyebrow="10" title="售后与保修"><div className="three-col"><Card><span className="level">LEVEL 01</span><h3>远程诊断</h3><p>视频、日志、报警、参数与小配件更换。</p></Card><Card><span className="level">LEVEL 02</span><h3>模块替换</h3><p>镜片、激光头配件、控制器、电源、水冷、开关、急停和线缆。</p></Card><Card><span className="level">LEVEL 03</span><h3>重大故障</h3><p>按合同条件提供临时备用机、翻新替换机或整机更换。</p></Card></div><div className="not-now"><strong>初步采用12个月有限保修</strong><p>不承诺所有故障无条件换新、终身免费售后或无限次免费现场维修。</p></div></Section>
+      <Section id="weekly" eyebrow="11" title="每周执行节奏"><div className="week-rhythm"><Card><strong>MON</strong><h3>确定结果</h3><p>看阶段、决策门、CRM和预算；确定一个成果、三项行动和行程。</p></Card><Card><strong>TUE / THU</strong><h3>两次小块学习</h3><p>每次60—90分钟，只学当前业务主题；不能挤占客户行动。</p></Card><Card><strong>WED</strong><h3>清除障碍</h3><p>检查产品、客户和公司卡点，删除低优先级，把卡点变成动作。</p></Card><Card><strong>FRI</strong><h3>数据与学习转化</h3><p>复盘客户和支出，用30分钟把一项知识转为SOP、模板或行动。</p></Card></div><div className="notice compact"><strong>学习时间上限</strong><p>普通周每周2次学习、1次转化，总计不超过3—4小时；客户行动优先于课程进度。差旅或高强度客户周可以暂停课程，不要求补课。</p></div><WeeklyWorkbench reviews={weekly} setReviews={setWeekly}/></Section>
+      <Section id="learning" eyebrow="12" title="个人学习与企业家能力发展"><LearningDevelopment resources={learningResources} setResources={setLearningResources} reviews={capabilityReviews} setReviews={setCapabilityReviews}/></Section>
+      <Section id="gates" eyebrow="13" title="关键决策门"><p className="section-intro">每个决策门只能得出继续、调整或暂停。不能用“再看看”作为结论。</p><DecisionGates decisions={decisions} setDecisions={setDecisions} currentGate={gate}/></Section>
+      <Section id="tbd" eyebrow="14" title="待确认信息"><div className="tbd-grid">{tbdItems.map(x=><div key={x}><span>TBD</span>{x}</div>)}</div><div className="notice legal">以上事项应在真实业务触发后，由律师、CPA、合规顾问、报关行、保险经纪或其他相关专业人士确认。</div></Section>
+      <Section id="sop" eyebrow="15" title="SOP 工作台"><p className="section-intro">逐项执行、自动保存。当前阶段推荐的 SOP 会高亮显示。</p><SOPWorkbench checks={sopChecks} setChecks={setSopChecks} open={sopOpen} setOpen={setSopOpen} recommended={[...current.recommended,'sop-18']}/></Section>
+      <Section id="templates" eyebrow="16" title="工作模板"><p className="section-intro">不再复制空白提纲。选择真实业务场景，直接填写并生成一份可归档、可发送的工作结果。</p><TemplateCards showToast={showToast} drafts={templateDrafts} setDrafts={setTemplateDrafts}/><BackupPanel showToast={showToast}/></Section>
+      <footer><strong>美国创业与工业设备市场进入计划</strong><p>本计划用于创业准备、市场验证和内部运营管理。涉及移民、税务、产品合规、进口、保险和合同的内容，需要由相关专业人士根据实际情况确认。</p><span>数据仅保存在当前浏览器 · 建议每周导出备份</span></footer>
+    </div></main><Toast message={toast}/></div>;
+}
